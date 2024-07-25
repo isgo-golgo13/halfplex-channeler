@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/isgo-golgo13/fifochannel/svckit"
 	"github.com/joho/godotenv"
@@ -30,17 +32,42 @@ func main() {
 	}
 	defer listener.Close()
 
-	fmt.Println("Server is listening on", listenAddr)
+	// Create a channel to listen for interrupt or terminate signals from the OS.
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println("Failed to accept connection:", err)
-			continue
+	// Channel to signal that the server is done
+	doneChan := make(chan bool, 1)
+
+	// Handle incoming connections
+	go func() {
+		fmt.Println("Server is listening on", listenAddr)
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				select {
+				case <-doneChan:
+					return
+				default:
+					fmt.Println("Failed to accept connection:", err)
+				}
+				continue
+			}
+
+			go handleConnection(conn)
 		}
+	}()
 
-		go handleConnection(conn)
-	}
+	// Wait for interrupt signal
+	<-sigChan
+	fmt.Println("\nShutting down server...")
+
+	// Signal that the server should stop accepting new connections
+	close(doneChan)
+
+	// Close the listener
+	listener.Close()
+	fmt.Println("Server stopped gracefully.")
 }
 
 func handleConnection(conn net.Conn) {
