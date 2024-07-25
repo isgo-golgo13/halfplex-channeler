@@ -3,10 +3,13 @@ FROM golang:1.18-alpine AS builder
 WORKDIR /app
 COPY svckit/ ./svckit/
 COPY cmd/client/ ./cmd/client/
+COPY .env ./.env
 WORKDIR /app/cmd/client
 RUN go build -o /app/client
 
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/client .
+COPY .env ./.env
+ENV SERVER_ADDR=server:8000
 ENTRYPOINT ["./client"]

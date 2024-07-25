@@ -6,10 +6,21 @@ import (
 	"os"
 
 	"github.com/isgo-golgo13/fifochannel/svckit"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	listenAddr := "0.0.0.0:8000"
+	// Load environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file")
+	}
+
+	listenAddr := os.Getenv("LISTEN_ADDR")
+	if listenAddr == "" {
+		listenAddr = "0.0.0.0:8000" // Default to 0.0.0.0:8000 if not set
+	}
+
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		fmt.Println("Failed to start server:", err)

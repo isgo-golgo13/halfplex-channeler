@@ -6,10 +6,21 @@ import (
 	"os"
 
 	"github.com/isgo-golgo13/fifochannel/svckit"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	serverAddr := "server:8000"
+	// Load environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file")
+	}
+
+	serverAddr := os.Getenv("SERVER_ADDR")
+	if serverAddr == "" {
+		fmt.Println("SERVER_ADDR not set in .env file")
+		os.Exit(1)
+	}
 
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {

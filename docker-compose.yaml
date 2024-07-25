@@ -13,3 +13,5 @@ services:
       dockerfile: Dockerfile.client
     depends_on:
       - server
+    env_file:
+      - .env
