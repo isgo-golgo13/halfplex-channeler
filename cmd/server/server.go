@@ -9,9 +9,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const CONFIG_FILE = "../../.env"
+
 func main() {
 	// Load environment variables from .env file
-	err := godotenv.Load()
+	err := godotenv.Load(CONFIG_FILE)
 	if err != nil {
 		fmt.Println("Error loading .env file")
 	}
@@ -57,7 +59,7 @@ func handleConnection(conn net.Conn) {
 	}
 
 	// Sending response
-	sendBuf := []byte("hello from server")
+	sendBuf := []byte("ACK of client sent packket from server")
 	if err, n := fifo.Send(sendBuf, int64(len(sendBuf))); err != nil {
 		fmt.Println("Send error:", err)
 	} else {

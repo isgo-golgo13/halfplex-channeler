@@ -9,9 +9,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const CONFIG_FILE = "../../.env"
+
 func main() {
 	// Load environment variables from .env file
-	err := godotenv.Load()
+	err := godotenv.Load(CONFIG_FILE)
 	if err != nil {
 		fmt.Println("Error loading .env file")
 	}
@@ -32,7 +34,7 @@ func main() {
 	fifo := &svckit.FifoSocketChannel{Conn: conn}
 
 	// Sending data
-	sendBuf := []byte("hello from client")
+	sendBuf := []byte("data-packet-payload:000000000000000000000000000000000001010 ")
 	if err, n := fifo.Send(sendBuf, int64(len(sendBuf))); err != nil {
 		fmt.Println("Send error:", err)
 	} else {
