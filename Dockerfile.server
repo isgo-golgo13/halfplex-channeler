@@ -1,0 +1,12 @@
+# Multi-stage build for the server
+FROM golang:1.18-alpine AS builder
+WORKDIR /app
+COPY svckit/ ./svckit/
+COPY cmd/server/ ./cmd/server/
+WORKDIR /app/cmd/server
+RUN go build -o /app/server
+
+FROM alpine:latest
+WORKDIR /app
+COPY --from=builder /app/server .
+ENTRYPOINT ["./server"]

@@ -1,0 +1,12 @@
+# Multi-stage build for the client
+FROM golang:1.18-alpine AS builder
+WORKDIR /app
+COPY svckit/ ./svckit/
+COPY cmd/client/ ./cmd/client/
+WORKDIR /app/cmd/client
+RUN go build -o /app/client
+
+FROM alpine:latest
+WORKDIR /app
+COPY --from=builder /app/client .
+ENTRYPOINT ["./client"]
