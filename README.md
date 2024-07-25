@@ -82,14 +82,13 @@ make compile-all
 To compile the `client` and `server` individually.
 
 ```sh
-make compile-client
+make compile-client  # for the client binary.
 ```
-for the client binary and
 
 ```sh
-make compile-server
+make compile-server  # for the server binary.
 ```
-for the server binary.
+
 
 
 
