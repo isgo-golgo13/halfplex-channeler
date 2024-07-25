@@ -11,6 +11,11 @@ SERVER_DIR=cmd/server
 CLIENT_BIN=client
 SERVER_BIN=server
 
+# Docker image names and tags
+CLIENT_IMAGE=isgo-golgo13/fifochannel-client
+SERVER_IMAGE=isgo-golgo13/fifochannel-server
+IMAGE_TAG=latest
+
 # Compile the client
 compile-client:
 	@echo "Compiling client..."
@@ -31,5 +36,19 @@ clean:
 	@rm -f $(CLIENT_DIR)/$(CLIENT_BIN) $(SERVER_DIR)/$(SERVER_BIN)
 	@echo "Clean up complete."
 
+# Build Docker image for client
+docker-image-client:
+	@echo "Building Docker image for client..."
+	@docker build -t $(CLIENT_IMAGE):$(IMAGE_TAG) -f Dockerfile.client .
+
+# Build Docker image for server
+docker-image-server:
+	@echo "Building Docker image for server..."
+	@docker build -t $(SERVER_IMAGE):$(IMAGE_TAG) -f Dockerfile.server .
+
+# Build Docker images for both client and server
+docker-image-all: docker-image-client docker-image-server
+	@echo "Docker images built and tagged."
+
 # Phony targets
-.PHONY: compile-client compile-server compile-all clean
+.PHONY: compile-client compile-server compile-all clean docker-image-client docker-image-server docker-image-all
