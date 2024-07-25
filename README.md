@@ -64,11 +64,11 @@ docker-image-server:
 	@docker build -t $(SERVER_IMAGE):$(IMAGE_TAG) -f Dockerfile.server .
 
 # Build Docker images for both client and server
-docker-image-all: docker-image-client docker-image-server
+docker-images-all: docker-image-client docker-image-server
 	@echo "Docker images built and tagged."
 
 # Phony targets
-.PHONY: compile-client compile-server compile-all clean docker-image-client docker-image-server docker-image-all
+.PHONY: compile-client compile-server compile-all clean docker-image-client docker-image-server docker-images-all
 ```
 
 
@@ -79,8 +79,41 @@ To compile the `client` and `server`.
 make compile-all
 ```
 
+To compile the `client` and `server` individually.
+
+```sh
+make compile-client
+```
+for the client binary and
+
+```sh
+make compile-server
+```
+for the server binary.
+
+
+
 To clean the client and server binaries .
 
 ```sh
 make clean
+```
+
+
+To build the Docker images for the `client` and `server` do the following.
+
+```sh
+make docker-images-all
+```
+
+To build the Docker image individually for the `client` do the following.
+
+```sh
+make docker-image-client
+```
+
+To build the Docker image individually for the `server` do the following.
+
+```sh
+make docker-image-server
 ```

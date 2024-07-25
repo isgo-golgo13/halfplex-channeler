@@ -47,8 +47,8 @@ docker-image-server:
 	@docker build -t $(SERVER_IMAGE):$(IMAGE_TAG) -f Dockerfile.server .
 
 # Build Docker images for both client and server
-docker-image-all: docker-image-client docker-image-server
+docker-images-all: docker-image-client docker-image-server
 	@echo "Docker images built and tagged."
 
 # Phony targets
-.PHONY: compile-client compile-server compile-all clean docker-image-client docker-image-server docker-image-all
+.PHONY: compile-client compile-server compile-all clean docker-image-client docker-image-server docker-images-all
