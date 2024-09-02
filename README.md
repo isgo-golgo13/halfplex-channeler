@@ -1,5 +1,5 @@
 # HalfPlexChanneler (Go)
-Go 1.22.x HalfPlexChannel (Fifo) interface and HalfPlexChanneler struct implementing the HalfPlexChannel interface for client and server data exchange.
+Go 1.22 Half Duplex (Fifo) HalfPlexChannel interface using io.Write, io.Read, io.Close for HalfPlexChanneler structs for client and server for data exchange.
 
 
 ## Instructions
