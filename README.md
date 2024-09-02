@@ -1,5 +1,5 @@
-# Go FifoChannel
-Go 1.22.x FifoChannel interface and FifoSocketChannel struct implementing the FifoChannel interface for client and server data exchange.
+# HalfPlexChanneler (Go)
+Go 1.22.x HalfPlexChannel (Fifo) interface and HalfPlexChanneler struct implementing the HalfPlexChannel interface for client and server data exchange.
 
 
 ## Instructions
