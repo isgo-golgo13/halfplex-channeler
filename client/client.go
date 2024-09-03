@@ -20,7 +20,6 @@ func main() {
 	defer conn.Close()
 
 	ctx := context.Background()
-
 	channel := svckit.NewHalfPlexChanneler(conn, conn)
 
 	// Sending a message to the server
@@ -39,7 +38,7 @@ func main() {
 	// Sending a timed message
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err, _ := channel.SendTimeout(timeoutCtx, strings.NewReader("Timed Message from Client"), 1024, timeoutCtx.Done()); err != nil {
+	if _, err := channel.SendTimeout(timeoutCtx, strings.NewReader("Timed Message from Client"), 1024, 5*time.Second); err != nil {
 		log.Fatal("SendTimeout error:", err)
 	}
 }

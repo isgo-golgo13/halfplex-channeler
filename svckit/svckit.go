@@ -65,16 +65,27 @@ func (hc *HalfPlexChanneler) Send(ctx context.Context, data io.Reader, n int64) 
 }
 
 // SendTimeout sends data with a timeout using the provided context.
-func (hc *HalfPlexChanneler) SendTimeout(ctx context.Context, data io.Reader, n int64, timeout <-chan time.Duration) (error, int64) {
+func (hc *HalfPlexChanneler) SendTimeout(ctx context.Context, data io.Reader, n int64, timeout time.Duration) (int64, error) {
 	if hc.closed {
-		return io.ErrClosedPipe, 0
+		return 0, io.ErrClosedPipe
 	}
 
+	done := make(chan struct{})
+	var sentBytes int64
+	var sendErr error
+
+	go func() {
+		sendErr, sentBytes = hc.Send(ctx, data, n)
+		close(done)
+	}()
+
 	select {
-	case <-timeout:
-		return context.DeadlineExceeded, 0
-	default:
-		return hc.Send(ctx, data, n)
+	case <-done:
+		return sentBytes, sendErr
+	case <-ctx.Done():
+		return sentBytes, ctx.Err()
+	case <-time.After(timeout):
+		return sentBytes, context.DeadlineExceeded
 	}
 }
 
