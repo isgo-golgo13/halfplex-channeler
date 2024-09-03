@@ -13,6 +13,7 @@ type HalfPlexChannel interface {
 	Send(ctx context.Context, data io.Reader, n int64) (int64, error)
 	SendTimeout(ctx context.Context, data io.Reader, n int64, timeout time.Duration) (int64, error)
 	Recv(ctx context.Context, writer io.Writer, n int64) (int64, error)
+	RecvAll(ctx context.Context, writers []io.Writer, n int64) (int64, error)
 	SendAll(ctx context.Context, data []io.Reader, n int64) (int64, error)
 	Close(ctx context.Context) error
 }
@@ -81,6 +82,29 @@ func (hc *HalfPlexChanneler) Recv(ctx context.Context, writer io.Writer, n int64
 
 	recvBytes, err := io.CopyN(writer, hc.conn, n)
 	return recvBytes, err
+}
+
+// RecvAll receives data into multiple io.Writer targets from the connection.
+func (hc *HalfPlexChanneler) RecvAll(ctx context.Context, writers []io.Writer, n int64) (int64, error) {
+	hc.mu.Lock()
+	defer hc.mu.Unlock()
+
+	if hc.closed {
+		return 0, io.ErrClosedPipe
+	}
+
+	var totalRecv int64
+	for _, writer := range writers {
+		recvBytes, err := hc.Recv(ctx, writer, n-totalRecv)
+		totalRecv += recvBytes
+		if err != nil {
+			return totalRecv, err
+		}
+		if totalRecv >= n {
+			break
+		}
+	}
+	return totalRecv, nil
 }
 
 // SendAll sends all data from a slice of io.Reader objects.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -81,13 +82,16 @@ func handleConnection(ctx context.Context, conn net.Conn) {
 
 	channel := svckit.NewHalfPlexChanneler(conn)
 
-	// Receiving a message from the client
-	var requestBuffer bytes.Buffer
-	if _, err := channel.Recv(ctx, &requestBuffer, 1024); err != nil {
-		log.Println("Receive error:", err)
+	// Receiving data into multiple writers
+	var requestBuffer1 bytes.Buffer
+	var requestBuffer2 bytes.Buffer
+	writers := []io.Writer{&requestBuffer1, &requestBuffer2}
+	if _, err := channel.RecvAll(ctx, writers, 1024); err != nil {
+		log.Println("RecvAll error:", err)
 		return
 	}
-	fmt.Println("Received from client:", requestBuffer.String())
+	fmt.Println("Received from client (Buffer 1):", requestBuffer1.String())
+	fmt.Println("Received from client (Buffer 2):", requestBuffer2.String())
 
 	// Sending a response back to the client
 	response := strings.NewReader("Message from Server!")
