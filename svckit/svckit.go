@@ -3,69 +3,50 @@ package svckit
 import (
 	"context"
 	"io"
+	"net"
+	"sync"
 	"time"
 )
 
-// HalfPlexChannel defines an interface for half-duplex communication with cancellable operations using context.
+// HalfPlexChannel defines the interface for half-duplex communication with context support.
 type HalfPlexChannel interface {
-	Send(ctx context.Context, data io.Reader, n int64) (error, int64)
-	SendTimeout(ctx context.Context, data io.Reader, n int64, timeout <-chan time.Duration) (error, int64)
-	Recv(ctx context.Context, writer io.Writer, n int64) (error, int64)
-	SendAll(ctx context.Context, data []io.Reader, n int64) (error, int64)
+	Send(ctx context.Context, data io.Reader, n int64) (int64, error)
+	SendTimeout(ctx context.Context, data io.Reader, n int64, timeout time.Duration) (int64, error)
+	Recv(ctx context.Context, writer io.Writer, n int64) (int64, error)
+	SendAll(ctx context.Context, data []io.Reader, n int64) (int64, error)
 	Close(ctx context.Context) error
 }
 
-// HalfPlexChanneler is a concrete implementation of HalfPlexChannel.
+// HalfPlexChanneler implements the HalfPlexChannel interface.
 type HalfPlexChanneler struct {
-	sendWriter io.Writer
-	recvReader io.Reader
-	closed     bool
+	conn   net.Conn
+	closed bool
+	mu     sync.Mutex // Mutex to enforce half-duplex behavior
 }
 
 // NewHalfPlexChanneler creates a new HalfPlexChanneler.
-func NewHalfPlexChanneler(sendWriter io.Writer, recvReader io.Reader) *HalfPlexChanneler {
-	return &HalfPlexChanneler{
-		sendWriter: sendWriter,
-		recvReader: recvReader,
-		closed:     false,
-	}
+func NewHalfPlexChanneler(conn net.Conn) *HalfPlexChanneler {
+	return &HalfPlexChanneler{conn: conn}
 }
 
-// Send sends data with the provided context.
-func (hc *HalfPlexChanneler) Send(ctx context.Context, data io.Reader, n int64) (error, int64) {
+// Send sends data from an io.Reader to the connection.
+func (hc *HalfPlexChanneler) Send(ctx context.Context, data io.Reader, n int64) (int64, error) {
+	hc.mu.Lock()
+	defer hc.mu.Unlock()
+
 	if hc.closed {
-		return io.ErrClosedPipe, 0
+		return 0, io.ErrClosedPipe
 	}
 
-	written := int64(0)
-	buffer := make([]byte, 4096)
-
-	for written < n {
-		select {
-		case <-ctx.Done():
-			return ctx.Err(), written
-		default:
-			toRead := min(4096, n-written)
-			bytesRead, err := data.Read(buffer[:toRead])
-			if err != nil && err != io.EOF {
-				return err, written
-			}
-			bytesWritten, err := hc.sendWriter.Write(buffer[:bytesRead])
-			written += int64(bytesWritten)
-			if err != nil {
-				return err, written
-			}
-			if bytesRead == 0 {
-				break
-			}
-		}
-	}
-
-	return nil, written
+	sentBytes, err := io.CopyN(hc.conn, data, n)
+	return sentBytes, err
 }
 
-// SendTimeout sends data with a timeout using the provided context.
+// SendTimeout sends data with a timeout.
 func (hc *HalfPlexChanneler) SendTimeout(ctx context.Context, data io.Reader, n int64, timeout time.Duration) (int64, error) {
+	hc.mu.Lock()
+	defer hc.mu.Unlock()
+
 	if hc.closed {
 		return 0, io.ErrClosedPipe
 	}
@@ -75,7 +56,7 @@ func (hc *HalfPlexChanneler) SendTimeout(ctx context.Context, data io.Reader, n 
 	var sendErr error
 
 	go func() {
-		sendErr, sentBytes = hc.Send(ctx, data, n)
+		sentBytes, sendErr = hc.Send(ctx, data, n)
 		close(done)
 	}()
 
@@ -89,72 +70,44 @@ func (hc *HalfPlexChanneler) SendTimeout(ctx context.Context, data io.Reader, n 
 	}
 }
 
-// Recv receives data with the provided context.
-func (hc *HalfPlexChanneler) Recv(ctx context.Context, writer io.Writer, n int64) (error, int64) {
+// Recv receives data into an io.Writer from the connection.
+func (hc *HalfPlexChanneler) Recv(ctx context.Context, writer io.Writer, n int64) (int64, error) {
+	hc.mu.Lock()
+	defer hc.mu.Unlock()
+
 	if hc.closed {
-		return io.ErrClosedPipe, 0
+		return 0, io.ErrClosedPipe
 	}
 
-	read := int64(0)
-	buffer := make([]byte, 4096)
-
-	for read < n {
-		select {
-		case <-ctx.Done():
-			return ctx.Err(), read
-		default:
-			toWrite := min(4096, n-read)
-			bytesRead, err := hc.recvReader.Read(buffer[:toWrite])
-			if err != nil && err != io.EOF {
-				return err, read
-			}
-			bytesWritten, err := writer.Write(buffer[:bytesRead])
-			read += int64(bytesWritten)
-			if err != nil {
-				return err, read
-			}
-			if bytesRead == 0 {
-				break
-			}
-		}
-	}
-
-	return nil, read
+	recvBytes, err := io.CopyN(writer, hc.conn, n)
+	return recvBytes, err
 }
 
-// SendAll sends data from multiple readers using the provided context.
-func (hc *HalfPlexChanneler) SendAll(ctx context.Context, data []io.Reader, n int64) (error, int64) {
+// SendAll sends all data from a slice of io.Reader objects.
+func (hc *HalfPlexChanneler) SendAll(ctx context.Context, data []io.Reader, n int64) (int64, error) {
+	hc.mu.Lock()
+	defer hc.mu.Unlock()
+
 	if hc.closed {
-		return io.ErrClosedPipe, 0
+		return 0, io.ErrClosedPipe
 	}
 
 	var totalSent int64
-
 	for _, reader := range data {
-		err, sent := hc.Send(ctx, reader, n-totalSent)
+		sent, err := hc.Send(ctx, reader, n-totalSent)
 		totalSent += sent
 		if err != nil {
-			return err, totalSent
+			return totalSent, err
 		}
 		if totalSent >= n {
 			break
 		}
 	}
-
-	return nil, totalSent
+	return totalSent, nil
 }
 
-// Close closes the HalfPlexChanneler using the provided context.
+// Close closes the connection.
 func (hc *HalfPlexChanneler) Close(ctx context.Context) error {
 	hc.closed = true
-	// Implement additional closing logic if needed
-	return nil
-}
-
-// min returns the smaller of x or y.
-func min(x, y int64) int64 {
-	if x < y {
-		return x
-	}
-	return y
+	return hc.conn.Close()
 }

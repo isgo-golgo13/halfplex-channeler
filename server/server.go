@@ -11,27 +11,23 @@ import (
 	"strings"
 	"syscall"
 
-	"halfplex-channeler/svckit"
+	"halfplex-channeler/svckit" // Assuming the package is called halfplex
 )
 
-// Server struct represents a TCP server with a configurable port.
 type Server struct {
 	port string
 }
 
-// Option defines a functional option for configuring the server.
 type Option func(*Server)
 
-// WithPort is a functional option to set the port for the server.
 func WithPort(port string) Option {
 	return func(s *Server) {
 		s.port = port
 	}
 }
 
-// NewServer creates a new Server with the given options.
 func NewServer(opts ...Option) *Server {
-	s := &Server{port: "8080"}
+	s := &Server{port: "8080"} // Default port is 8080
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -42,7 +38,6 @@ func main() {
 	// Initialize the server with a configurable port using functional options.
 	server := NewServer(WithPort("8080"))
 
-	// Listen for incoming connections on the specified port.
 	ln, err := net.Listen("tcp", ":"+server.port)
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
@@ -59,47 +54,46 @@ func main() {
 	// Handle OS signals for graceful shutdown.
 	go func() {
 		<-sigs
+		fmt.Println("Received shutdown signal, shutting down...")
 		cancel()
 		ln.Close()
-		fmt.Println("Shutting down server...")
 	}()
 
-	// Accept incoming connections in a loop.
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				return // Exit loop on server shutdown.
+				fmt.Println("Server shutdown complete")
+				return
 			default:
 				log.Println("Failed to accept connection:", err)
 			}
 			continue
 		}
 
-		// Handle each connection in a separate goroutine.
 		go handleConnection(ctx, conn)
 	}
 }
 
-// handleConnection handles the communication with a connected client.
 func handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
-	// Initialize a HalfPlexChanneler for communication.
-	channel := svckit.NewHalfPlexChanneler(conn, conn)
+	channel := svckit.NewHalfPlexChanneler(conn)
 
-	// Receive a message from the client.
+	// Receiving a message from the client
 	var requestBuffer bytes.Buffer
-	if err, _ := channel.Recv(ctx, &requestBuffer, 1024); err != nil {
+	if _, err := channel.Recv(ctx, &requestBuffer, 1024); err != nil {
 		log.Println("Receive error:", err)
 		return
 	}
 	fmt.Println("Received from client:", requestBuffer.String())
 
-	// Send a response back to the client.
-	response := strings.NewReader("Hello from Server!")
-	if err, _ := channel.Send(ctx, response, int64(response.Len())); err != nil {
+	// Sending a response back to the client
+	response := strings.NewReader("Message from Server!")
+	if _, err := channel.Send(ctx, response, int64(response.Len())); err != nil {
 		log.Println("Send error:", err)
 	}
+
+	channel.Close(ctx)
 }
